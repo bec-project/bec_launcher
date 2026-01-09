@@ -5,16 +5,26 @@ Simple helpers for fetching available deployments.
 from __future__ import annotations
 
 import os
+from typing import TypedDict
 
 
-def get_available_deployments(base_path: str) -> dict[str, list[str]]:
+class DeploymentDict(TypedDict):
+    """
+    Dictionary structure for deployment names.
+    """
+
+    production: list[str]
+    test: list[str]
+
+
+def get_available_deployments(base_path: str) -> DeploymentDict:
     """
     Get a list of available deployments by listing directories in the given base path.
 
     Returns:
-        A list of available deployment names.
+        DeploymentDict: A dictionary with 'production' and 'test' keys containing lists of deployment names.
     """
-    out = {"production": [], "test": []}
+    out: DeploymentDict = {"production": [], "test": []}
 
     if not os.path.exists(base_path):
         return out
