@@ -1,0 +1,46 @@
+name: Run Pytest with Coverage
+on:
+  workflow_call:
+    inputs:
+      BEC_LAUNCHER_BRANCH:
+        description: "Branch of BEC Launcher to install"
+        required: false
+        default: "main"
+        type: string
+    secrets:
+      CODECOV_TOKEN:
+        required: true
+
+permissions:
+  pull-requests: write
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout BEC Launcher
+        uses: actions/checkout@v4
+        with:
+          repository: bec-project/bec_launcher
+          ref: ${{ inputs.BEC_LAUNCHER_BRANCH }}
+
+      - name: Install BEC Launcher and dependencies
+        uses: ./.github/actions/bec_launcher_install
+        with:
+          BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH }}
+          PYTHON_VERSION: 3.11
+
+      - name: Run Pytest with Coverage
+        id: coverage
+        run: |
+          cd ./bec_launcher
+          coverage run --source=./bec_launcher --omit=*/bec_launcher/tests/* -m pytest -v --junitxml=report.xml --random-order --full-trace ./tests
+          coverage report
+          coverage xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: bec-project/bec_launcher

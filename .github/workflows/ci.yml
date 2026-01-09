@@ -1,0 +1,38 @@
+name: Full CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      BEC_LAUNCHER_BRANCH:
+        description: "Branch of BEC Launcher to install"
+        required: false
+        type: string
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check_pr_status:
+    uses: ./.github/workflows/check_pr.yml
+
+  formatter:
+    needs: check_pr_status
+    if: needs.check_pr_status.outputs.branch-pr == ''
+    uses: ./.github/workflows/formatter.yml
+
+  unit-test:
+    needs: [check_pr_status, formatter]
+    if: needs.check_pr_status.outputs.branch-pr == ''
+    uses: ./.github/workflows/pytest.yml
+    with:
+      BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH || 'main' }}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  unit-test-matrix:
+    needs: [check_pr_status, formatter]
+    if: needs.check_pr_status.outputs.branch-pr == ''
+    uses: ./.github/workflows/pytest-matrix.yml
+    with:
+      BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH || 'main' }}

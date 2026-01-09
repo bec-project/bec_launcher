@@ -1,0 +1,35 @@
+name: Sync PR to Project
+
+on:
+  pull_request:
+    types:
+      [
+        opened,
+        assigned,
+        unassigned,
+        edited,
+        ready_for_review,
+        converted_to_draft,
+        reopened,
+        synchronize,
+        closed,
+      ]
+
+jobs:
+  sync-project:
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      pull-requests: read
+      contents: read
+
+    steps:
+      - name: Sync PR to Project
+        uses: bec-project/action-issue-sync-pr@v1
+        with:
+          token: ${{ secrets.ADD_ISSUE_TO_PROJECT }}
+          org: ${{ github.repository_owner }}
+          repo: ${{ github.repository }}
+          project-number: 3
+          pr-number: ${{ github.event.pull_request.number }}

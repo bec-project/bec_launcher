@@ -1,0 +1,35 @@
+name: Run Pytest with different Python versions
+on:
+  workflow_call:
+    inputs:
+      BEC_LAUNCHER_BRANCH:
+        description: "Branch of BEC Launcher to install"
+        required: false
+        default: "main"
+        type: string
+
+jobs:
+  pytest-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout BEC Launcher
+        uses: actions/checkout@v4
+        with:
+          repository: bec-project/bec_launcher
+          ref: ${{ inputs.BEC_LAUNCHER_BRANCH }}
+
+      - name: Install BEC Launcher and dependencies
+        uses: ./.github/actions/bec_launcher_install
+        with:
+          BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH }}
+          PYTHON_VERSION: ${{ matrix.python-version }}
+
+      - name: Run Pytest
+        run: |
+          cd ./bec_launcher
+          pip install pytest pytest-random-order
+          pytest -v --maxfail=2 --junitxml=report.xml --random-order ./tests
