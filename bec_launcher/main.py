@@ -3,7 +3,8 @@ from bec_launcher.deployments import get_available_deployments
 
 def launch(base_path: str) -> None:
     deployments = get_available_deployments(base_path)
-    print("Launching BEC Launcher...")
+    print(f"Launching BEC Launcher with base path: {base_path}")
+    print(f"Available deployments: {deployments}")
 
 
 if __name__ == "__main__":
