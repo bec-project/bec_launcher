@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-01-12)
+
+### Bug Fixes
+
+- Correct repository reference in sync-issues-pr workflow
+  ([`2f36cb8`](https://github.com/bec-project/bec_launcher/commit/2f36cb883c9ed0f83f72bea55465eccc6e3a425f))
+
+### Features
+
+- Add launch_deployment function for executing commands in new terminal
+  ([`5d1c82d`](https://github.com/bec-project/bec_launcher/commit/5d1c82dc09be01197a7ccca5c7a80c72ab6f3437))
+
+### Testing
+
+- Add tests for launch_deployment function across macOS and Linux platforms
+  ([`63e61fe`](https://github.com/bec-project/bec_launcher/commit/63e61fe54bd15be334bc6fc5a3b951f749b69a1e))
+
+
 ## v0.1.0 (2026-01-09)
 
 ### Features
