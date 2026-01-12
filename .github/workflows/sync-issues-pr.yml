@@ -30,6 +30,6 @@ jobs:
         with:
           token: ${{ secrets.ADD_ISSUE_TO_PROJECT }}
           org: ${{ github.repository_owner }}
-          repo: ${{ github.repository }}
+          repo: ${{ github.event.repository.name }}
           project-number: 3
           pr-number: ${{ github.event.pull_request.number }}
