@@ -11,6 +11,9 @@
 # file writer data
 **.h5
 
+# Qt Design Studio files
+**.qtds
+
 # ignore recover_config files
 recovery_config*
 
