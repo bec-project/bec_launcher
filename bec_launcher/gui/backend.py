@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from PySide6.QtCore import QObject, Signal, Slot, Property, QSettings
+from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
 
 from bec_launcher.deployments import get_available_deployments, launch_deployment
 
@@ -104,7 +104,11 @@ class Backend(QObject):
 
     def _auto_select_single_deployment(self, emit_signals: bool = False) -> None:
         """Skip Step 1 when exactly one deployment is available."""
-        if self._should_auto_launch or self._deployment_confirmed or len(self._deployment_names) != 1:
+        if (
+            self._should_auto_launch
+            or self._deployment_confirmed
+            or len(self._deployment_names) != 1
+        ):
             return
 
         should_emit_selected = self._selected_index != 0
@@ -246,7 +250,7 @@ class Backend(QObject):
     @Slot()
     def launchTerminal(self) -> None:
         """Launch a terminal with the selected deployment's environment."""
-        self._launch_action("terminal", "bec ", "terminal")
+        self._launch_action("terminal", "bec --nogui ", "terminal")
 
     @Slot()
     def launchDock(self) -> None:
