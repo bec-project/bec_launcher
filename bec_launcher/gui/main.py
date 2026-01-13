@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 
-from PySide6.QtCore import QUrl, QTimer
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
