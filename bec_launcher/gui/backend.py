@@ -281,7 +281,7 @@ class Backend(QObject):
 
         try:
             # Just open a shell in the activated environment
-            launch_deployment(path, "exec $SHELL", activate_env=True)
+            launch_deployment(path, "exec $SHELL bec --nogui", activate_env=True)
             # Quit the launcher after starting the terminal
             self.quitApplication.emit()
         except Exception as e:
@@ -309,7 +309,7 @@ class Backend(QObject):
 
         try:
             # Launch bec-gui command
-            launch_deployment(path, "bec-gui", activate_env=True)
+            launch_deployment(path, "bec-server-gui", activate_env=True)
             # Quit the launcher after starting the GUI
             self.quitApplication.emit()
         except Exception as e:
