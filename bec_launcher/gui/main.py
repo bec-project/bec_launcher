@@ -25,7 +25,10 @@ def parse_args() -> argparse.Namespace:
         help="Start fresh, ignoring saved preferences (deployment and action)",
     )
     parser.add_argument(
-        "--deployments-path", type=str, default=None, help="Path to the deployments directory"
+        "--base-path",
+        type=str,
+        default=None,
+        help="Base path for deployments, typically /sls/<beamline>/config/bec",
     )
     return parser.parse_args()
 
@@ -41,7 +44,7 @@ def main() -> int:
     app = QGuiApplication(sys.argv)
 
     # Backend injection with fresh_start option
-    backend = Backend(base_path=args.deployments_path, fresh_start=args.fresh_start)
+    backend = Backend(base_path=args.base_path, fresh_start=args.fresh_start)
 
     # Connect quitApplication signal to app.quit
     backend.quitApplication.connect(app.quit)
