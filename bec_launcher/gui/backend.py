@@ -281,7 +281,7 @@ class Backend(QObject):
 
         try:
             # Just open a shell in the activated environment
-            launch_deployment(path, "exec $SHELL bec --nogui", activate_env=True)
+            launch_deployment(path, "bec --nogui", activate_env=True)
             # Quit the launcher after starting the terminal
             self.quitApplication.emit()
         except Exception as e:
