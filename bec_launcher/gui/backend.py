@@ -309,7 +309,7 @@ class Backend(QObject):
 
         try:
             # Launch bec-gui command
-            launch_deployment(path, "bec-server-gui", activate_env=True)
+            launch_deployment(path, "bec-gui-server", activate_env=True)
             # Quit the launcher after starting the GUI
             self.quitApplication.emit()
         except Exception as e:
