@@ -6,6 +6,7 @@ Provides deployment data and launch actions to the QML frontend.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import List
 
@@ -14,7 +15,7 @@ from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
 from bec_launcher.deployments import get_available_deployments, launch_deployment
 
 # Default to the deployments folder in bec_launcher package
-DEFAULT_DEPLOYMENTS_PATH = str(Path(__file__).parent.parent / "deployments")
+DEFAULT_DEPLOYMENTS_PATH = str(Path(sys.prefix).parent.parent.parent / "config" / "bec")
 
 # Settings keys
 SETTINGS_REMEMBER_CHOICE = "launcher/remember_choice"
