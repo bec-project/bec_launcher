@@ -1,6 +1,32 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-03-18)
+
+### Bug Fixes
+
+- **backend**: Default path to the bec deployments
+  ([`3063b99`](https://github.com/bec-project/bec_launcher/commit/3063b99a3e2bbc58d699ebcf0bb24560d5c06c10))
+
+### Build System
+
+- **gui**: Added qt packages
+  ([`346fd27`](https://github.com/bec-project/bec_launcher/commit/346fd2773fcdd2ec948aa77394bd0ad198e63cc3))
+
+### Chores
+
+- **git**: Gitignore QtDesignStudio files
+  ([`e335bed`](https://github.com/bec-project/bec_launcher/commit/e335bed255158a8cf05a47955a3b3753efbc0575))
+
+### Features
+
+- **gui**: Qml based gui added
+  ([`cd97b0c`](https://github.com/bec-project/bec_launcher/commit/cd97b0ccfb406e5c616c8671628e6d57cb0c3ac4))
+
+- **script**: Added `launcher` script for cli
+  ([`9bf8884`](https://github.com/bec-project/bec_launcher/commit/9bf888429d53b6da783e7ce8d9e919e62a026101))
+
+
 ## v0.2.0 (2026-01-12)
 
 ### Bug Fixes
