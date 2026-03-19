@@ -42,6 +42,7 @@ def main() -> int:
     # os.environ["QML_DISABLE_DISK_CACHE"] = "1"
 
     app = QGuiApplication(sys.argv)
+    app.setApplicationName("BEC")
 
     # Backend injection with fresh_start option
     backend = Backend(base_path=args.base_path, fresh_start=args.fresh_start)
