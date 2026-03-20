@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.3.1 (2026-03-20)
+
+### Bug Fixes
+
+- **main**: Setapplicationname("bec")
+  ([`892d915`](https://github.com/bec-project/bec_launcher/commit/892d91595228b7793b8de3d7f7b57dfb036ff855))
+
+
 ## v0.3.0 (2026-03-18)
 
 ### Bug Fixes
