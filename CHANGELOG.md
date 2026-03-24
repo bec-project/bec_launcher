@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-03-24)
+
+### Features
+
+- **gui**: Add option to launch commands in a new terminal window
+  ([`e30d80b`](https://github.com/bec-project/bec_launcher/commit/e30d80b41e95ba9e76860639ae35395ec1adb4fc))
+
+
 ## v0.3.1 (2026-03-20)
 
 ### Bug Fixes
