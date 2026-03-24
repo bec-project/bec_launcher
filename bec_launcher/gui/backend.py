@@ -251,24 +251,26 @@ class Backend(QObject):
     @Slot()
     def launchTerminal(self) -> None:
         """Launch a terminal with the selected deployment's environment."""
-        self._launch_action("terminal", "bec --nogui ", "terminal")
+        self._launch_action("terminal", "bec --nogui ", "terminal", launch_new_terminal=True)
 
     @Slot()
     def launchDock(self) -> None:
         """Launch BEC with the dock companion workflow."""
-        self._launch_action("dock", "bec ", "dock companion")
+        self._launch_action("dock", "bec ", "dock companion", launch_new_terminal=True)
 
     @Slot()
     def launchApp(self) -> None:
         """Launch the standalone BEC App."""
-        self._launch_action("app", "bec-app", "BEC App")
+        self._launch_action("app", "bec-app", "BEC App", launch_new_terminal=False)
 
     @Slot()
     def launchGui(self) -> None:
         """Backward-compatible alias for the dock companion action."""
         self.launchDock()
 
-    def _launch_action(self, action: str, command: str, label: str) -> None:
+    def _launch_action(
+        self, action: str, command: str, label: str, launch_new_terminal: bool = True
+    ) -> None:
         """Launch the selected deployment using the requested command."""
         if self._selected_index < 0 or self._selected_index >= len(self._deployment_names):
             print("[Backend] No deployment selected")
@@ -287,7 +289,9 @@ class Backend(QObject):
         print(f"[Backend] Launching {label} for deployment: {name} at {path}")
 
         try:
-            launch_deployment(path, command, activate_env=True)
+            launch_deployment(
+                path, command, activate_env=True, launch_new_terminal=launch_new_terminal
+            )
             self.quitApplication.emit()
         except Exception as e:
             print(f"[Backend] Error launching {label}: {e}")

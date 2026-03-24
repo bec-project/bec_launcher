@@ -53,7 +53,9 @@ def get_available_deployments(base_path: str) -> DeploymentDict:
     return out
 
 
-def launch_deployment(deployment_path: str, cmd: str, activate_env: bool = True) -> None:
+def launch_deployment(
+    deployment_path: str, cmd: str, activate_env: bool = True, launch_new_terminal: bool = True
+) -> None:
     """
     Activate the BEC environment for the specified deployment
     and execute the given command. To this end, we open a new terminal window
@@ -66,6 +68,7 @@ def launch_deployment(deployment_path: str, cmd: str, activate_env: bool = True)
         deployment_path (str): The path to the deployment.
         cmd (str): The command to execute after activation.
         activate_env (bool): Whether to activate the BEC virtual environment.
+        launch_new_terminal (bool): Whether to launch the command in a new terminal window.
     """
     activation_command = f"source {os.path.join(deployment_path, 'bec_venv', 'bin', 'activate')}"
     if not activate_env:
@@ -101,6 +104,11 @@ def launch_deployment(deployment_path: str, cmd: str, activate_env: bool = True)
             """
         subprocess.Popen(["osascript", "-e", apple_script])
     elif platform == "Linux":
-        subprocess.Popen(["gnome-terminal", "--", "bash", "-c", full_command])
+        full_command = ["bash", "-c", f"{full_command}"]
+        if launch_new_terminal:
+            # We prefix the command with "gnome-terminal --" to
+            # ensure it runs in a new terminal window.
+            full_command = ["gnome-terminal", "--"] + full_command
+        subprocess.Popen(full_command)
     else:
         raise NotImplementedError("This function only supports macOS and Linux.")
