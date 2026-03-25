@@ -17,13 +17,11 @@ QtObject {
     readonly property int deploymentListVisibleCount: 4
     readonly property int deploymentCardPadding: 12
     readonly property int deploymentCardGap: 8
+    readonly property int defaultToggleHeight: 22
 
     readonly property int changeButtonWidth: 80
     readonly property int smallButtonHeight: 32
     readonly property int primaryButtonHeight: 40
-
-    readonly property int checkboxRowHeight: 28
-    readonly property int checkboxIndicatorSize: 18
 
     readonly property int actionCardHeight: 170
     readonly property int actionCardGap: 12

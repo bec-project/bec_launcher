@@ -11,10 +11,13 @@ Rectangle {
     property string deploymentPath: ""
     property string badgeType: "prod"
     property bool isSelected: false
+    property bool isDefault: false
     property bool isHovered: false
 
     radius: Theme.radiusMedium
-    color: root.isSelected ? Theme.backgroundCardSelected
+    color: root.isSelected && root.isDefault ? Theme.backgroundCardSelectedDefault
+        : root.isSelected ? Theme.backgroundCardSelected
+            : root.isDefault ? Theme.backgroundCardDefault
          : root.isHovered ? Theme.backgroundCardHover
          : Theme.backgroundCard
     border.width: root.isSelected ? 2 : 1
@@ -53,6 +56,31 @@ Rectangle {
             }
 
             Rectangle {
+                id: defaultToggle
+                Layout.preferredWidth: defaultToggleLabel.implicitWidth + 16
+                Layout.preferredHeight: Constants.defaultToggleHeight
+                radius: height / 2
+                color: root.isDefault ? Theme.accent : Theme.buttonSecondary
+                border.width: 1
+                border.color: root.isDefault ? Theme.accent : Theme.border
+
+                Text {
+                    id: defaultToggleLabel
+                    anchors.centerIn: parent
+                    text: "Default"
+                    color: Theme.textPrimary
+                    font.pixelSize: 10
+                    font.weight: Font.DemiBold
+                }
+
+                MouseArea {
+                    id: defaultToggleMouseArea
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
+
+            Rectangle {
                 Layout.preferredWidth: badgeText.implicitWidth + 16
                 Layout.preferredHeight: 22
                 radius: 11
@@ -87,10 +115,12 @@ Rectangle {
     }
 
     property alias cardMouseArea: cardMouseArea
+    property alias defaultToggleMouseArea: defaultToggleMouseArea
 
     MouseArea {
         id: cardMouseArea
         anchors.fill: parent
+        z: -1
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
     }

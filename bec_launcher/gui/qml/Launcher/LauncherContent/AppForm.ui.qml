@@ -16,7 +16,8 @@ Rectangle {
     property var deploymentPaths: []
     property int selectedIndex: -1
     property bool deploymentConfirmed: false
-    property bool rememberChoice: false
+    property string defaultDeployment: ""
+    property string defaultAction: ""
 
     signal deploymentSelected(int index)
     signal confirmDeployment()
@@ -24,7 +25,6 @@ Rectangle {
     signal launchTerminal()
     signal launchDock()
     signal launchApp()
-    signal rememberChoiceToggled(bool checked)
 
     state: root.deploymentConfirmed ? "selectAction" : "selectDeployment"
 
@@ -32,8 +32,6 @@ Rectangle {
     readonly property real actionCardsHeight: Constants.stepLabelHeight
         + Constants.sectionGap
         + Constants.actionCardHeight
-        + Constants.sectionGap
-        + Constants.checkboxRowHeight
     readonly property real deploymentCardHeight: deploymentRepeater.count > 0 && deploymentRepeater.itemAt(0)
         ? deploymentRepeater.itemAt(0).height
         : 0
@@ -68,7 +66,6 @@ Rectangle {
     property alias dockCard: dockCard
     property alias appCard: appCard
     property alias deploymentRepeater: deploymentRepeater
-    property alias rememberCheckbox: rememberCheckbox
 
     states: [
         State {
@@ -305,6 +302,7 @@ Rectangle {
                                          : modelData.toLowerCase().indexOf("dev") >= 0 ? "dev"
                                          : "prod"
                                 isSelected: index === root.selectedIndex
+                                isDefault: modelData === root.defaultDeployment
                             }
                         }
                     }
@@ -371,75 +369,39 @@ Rectangle {
                         id: terminalCard
                         width: (parent.width - (Constants.actionCardGap * 2)) / 3
                         height: Constants.actionCardHeight
+                        actionId: "terminal"
                         title: "Terminal"
                         description: "Open BEC in terminal without a graphical user interface."
                         icon: ">"
                         iconSource: Qt.resolvedUrl("images/BEC_terminal.png")
                         buttonText: "Open Terminal"
+                        isDefault: root.defaultAction === actionId
                     }
 
                     ActionCard {
                         id: dockCard
                         width: (parent.width - (Constants.actionCardGap * 2)) / 3
                         height: Constants.actionCardHeight
+                        actionId: "dock"
                         title: "Terminal + Dock"
                         description: "Open BEC in terminal with the GUI dock area companion window."
                         icon: "#"
                         iconSource: Qt.resolvedUrl("images/BEC_comp.png")
                         buttonText: "Open Terminal + Dock"
+                        isDefault: root.defaultAction === actionId
                     }
 
                     ActionCard {
                         id: appCard
                         width: (parent.width - (Constants.actionCardGap * 2)) / 3
                         height: Constants.actionCardHeight
+                        actionId: "app"
                         title: "BEC App"
                         description: "Fully fledged BEC desktop application environment."
                         icon: "[]"
                         iconSource: Qt.resolvedUrl("images/BEC_app.png")
                         buttonText: "Launch BEC App"
-                    }
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: Constants.checkboxRowHeight
-                    color: "transparent"
-
-                    CheckBox {
-                        id: rememberCheckbox
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        checked: root.rememberChoice
-                        text: "Remember my choice (skip this screen next time)"
-
-                        contentItem: Text {
-                            text: rememberCheckbox.text
-                            color: Theme.textSecondary
-                            font.pixelSize: 12
-                            leftPadding: rememberCheckbox.indicator.width + rememberCheckbox.spacing
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        indicator: Rectangle {
-                            implicitWidth: Constants.checkboxIndicatorSize
-                            implicitHeight: Constants.checkboxIndicatorSize
-                            x: rememberCheckbox.leftPadding
-                            y: (parent.height - height) / 2
-                            radius: 4
-                            color: rememberCheckbox.checked ? Theme.accent : Theme.backgroundInput
-                            border.color: rememberCheckbox.checked ? Theme.accent : Theme.border
-                            border.width: 1
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "✓"
-                                color: Theme.textPrimary
-                                font.pixelSize: 12
-                                font.weight: Font.Bold
-                                visible: rememberCheckbox.checked
-                            }
-                        }
+                        isDefault: root.defaultAction === actionId
                     }
                 }
             }

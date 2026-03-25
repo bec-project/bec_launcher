@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
         "--reset",
         action="store_true",
         dest="fresh_start",
-        help="Start fresh, ignoring saved preferences (deployment and action)",
+        help="Disable auto-launch for this run but preload saved deployment and action defaults",
     )
     parser.add_argument(
         "--base-path",
