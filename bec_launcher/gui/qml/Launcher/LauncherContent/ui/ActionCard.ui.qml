@@ -118,7 +118,14 @@ Rectangle {
                             MouseArea {
                                 id: defaultToggleMouseArea
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
+
+                                ToolTip.visible: containsMouse
+                                ToolTip.delay: 300
+                                ToolTip.text: root.isDefault
+                                    ? "This is the default app selection."
+                                    : "Set this app selection as the default."
                             }
                         }
                     }
