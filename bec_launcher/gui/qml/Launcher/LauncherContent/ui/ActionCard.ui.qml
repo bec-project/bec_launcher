@@ -7,17 +7,23 @@ Rectangle {
     width: 400
     height: Constants.actionCardHeight
 
+    property string actionId: "terminal"
     property string title: "Terminal"
     property string description: "Open a terminal session"
     property string icon: "▶"
     property url iconSource: ""
     property string buttonText: "Launch"
+    property bool isDefault: false
     property bool isHovered: false
 
     radius: Theme.radiusMedium
-    color: root.isHovered ? Theme.backgroundCardHover : Theme.backgroundCard
+    color: root.isDefault ? Theme.backgroundCardDefault
+        : root.isHovered ? Theme.backgroundCardHover
+            : Theme.backgroundCard
     border.width: 1
-    border.color: root.isHovered ? Theme.borderHover : Theme.border
+    border.color: root.isDefault ? Theme.borderDefault
+        : root.isHovered ? Theme.borderHover
+            : Theme.border
 
     Column {
         anchors.fill: parent
@@ -25,11 +31,22 @@ Rectangle {
         spacing: Constants.actionCardButtonGap
 
         Item {
+            id: contentArea
             width: parent.width
             height: parent.height - launchButton.height - parent.spacing
             clip: true
 
+            MouseArea {
+                id: cardMouseArea
+                anchors.fill: parent
+                z: -1
+                hoverEnabled: true
+                propagateComposedEvents: true
+                acceptedButtons: Qt.LeftButton
+            }
+
             Row {
+                id: contentRow
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -57,22 +74,61 @@ Rectangle {
                     }
                 }
 
-                Column {
+                Item {
                     width: parent.width - Constants.actionCardIconSize - Constants.actionCardGap
-                    spacing: 2
+                    height: titleRow.height + 4 + descriptionText.contentHeight
 
-                    Text {
-                        width: parent.width
-                        height: Constants.actionCardTitleHeight
-                        text: root.title
-                        color: Theme.textPrimary
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
-                        verticalAlignment: Text.AlignTop
+                    Row {
+                        id: titleRow
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 8
+
+                        Text {
+                            id: titleText
+                            width: parent.width - defaultToggle.width - parent.spacing
+                            height: Constants.actionCardTitleHeight
+                            text: root.title
+                            color: Theme.textPrimary
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                            verticalAlignment: Text.AlignTop
+                            elide: Text.ElideRight
+                        }
+
+                        Rectangle {
+                            id: defaultToggle
+                            width: root.isDefault ? defaultToggleLabel.implicitWidth + 16 : Constants.defaultToggleHeight
+                            height: Constants.defaultToggleHeight
+                            radius: height / 2
+                            color: root.isDefault ? Theme.accent : Theme.buttonSecondary
+                            border.width: 1
+                            border.color: root.isDefault ? Theme.accent : Theme.border
+
+                            Text {
+                                id: defaultToggleLabel
+                                anchors.centerIn: parent
+                                text: root.isDefault ? "Default" : "☆"
+                                color: Theme.textPrimary
+                                font.pixelSize: root.isDefault ? 10 : 12
+                                font.weight: Font.DemiBold
+                            }
+
+                            MouseArea {
+                                id: defaultToggleMouseArea
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
                     }
 
                     Text {
-                        width: parent.width
+                        id: descriptionText
+                        anchors.top: titleRow.bottom
+                        anchors.topMargin: 4
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         text: root.description
                         color: Theme.textSecondary
                         font.pixelSize: 12
@@ -109,12 +165,5 @@ Rectangle {
 
     property alias launchButton: launchButton
     property alias cardMouseArea: cardMouseArea
-
-    MouseArea {
-        id: cardMouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        propagateComposedEvents: true
-        acceptedButtons: Qt.NoButton
-    }
+    property alias defaultToggleMouseArea: defaultToggleMouseArea
 }

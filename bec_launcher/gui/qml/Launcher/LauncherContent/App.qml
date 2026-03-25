@@ -26,14 +26,14 @@ Window {
         deploymentPaths: backend.deploymentPaths
         selectedIndex: backend.selectedIndex
         deploymentConfirmed: backend.deploymentConfirmed
-        rememberChoice: backend.rememberChoice
+        defaultDeployment: backend.defaultDeployment
+        defaultAction: backend.defaultAction
         onDeploymentSelected: (index) => backend.selectDeployment(index)
         onConfirmDeployment: backend.confirmDeployment()
         onChangeDeployment: backend.changeDeployment()
         onLaunchTerminal: backend.launchTerminal()
         onLaunchDock: backend.launchDock()
         onLaunchApp: backend.launchApp()
-        onRememberChoiceToggled: (checked) => backend.setRememberChoice(checked)
     }
 
     Connections {
@@ -53,8 +53,20 @@ Window {
 
     Connections {
         target: appForm.terminalCard.cardMouseArea
+
+        function onClicked() {
+            appForm.launchTerminal()
+        }
         function onEntered() { appForm.terminalCard.isHovered = true }
         function onExited() { appForm.terminalCard.isHovered = false }
+    }
+
+    Connections {
+        target: appForm.terminalCard.defaultToggleMouseArea
+
+        function onClicked() {
+            backend.setDefaultAction("terminal", !appForm.terminalCard.isDefault)
+        }
     }
 
     Connections {
@@ -64,8 +76,20 @@ Window {
 
     Connections {
         target: appForm.dockCard.cardMouseArea
+
+        function onClicked() {
+            appForm.launchDock()
+        }
         function onEntered() { appForm.dockCard.isHovered = true }
         function onExited() { appForm.dockCard.isHovered = false }
+    }
+
+    Connections {
+        target: appForm.dockCard.defaultToggleMouseArea
+
+        function onClicked() {
+            backend.setDefaultAction("dock", !appForm.dockCard.isDefault)
+        }
     }
 
     Connections {
@@ -75,8 +99,20 @@ Window {
 
     Connections {
         target: appForm.appCard.cardMouseArea
+
+        function onClicked() {
+            appForm.launchApp()
+        }
         function onEntered() { appForm.appCard.isHovered = true }
         function onExited() { appForm.appCard.isHovered = false }
+    }
+
+    Connections {
+        target: appForm.appCard.defaultToggleMouseArea
+
+        function onClicked() {
+            backend.setDefaultAction("app", !appForm.appCard.isDefault)
+        }
     }
 
     Connections {
@@ -85,6 +121,9 @@ Window {
         function onItemAdded(index, item) {
             item.cardMouseArea.clicked.connect(function() {
                 appForm.deploymentSelected(index)
+            })
+            item.defaultToggleMouseArea.clicked.connect(function () {
+                backend.setDefaultDeployment(index, !item.isDefault)
             })
             item.cardMouseArea.entered.connect(function() {
                 item.isHovered = true
@@ -96,25 +135,7 @@ Window {
     }
 
     Connections {
-        target: appForm.rememberCheckbox
-        function onCheckedChanged() {
-            appForm.rememberChoiceToggled(appForm.rememberCheckbox.checked)
-        }
-    }
-
-    Connections {
         target: backend
-
-        function onAutoLaunchTriggered(action) {
-            console.log("Auto-launching:", action)
-            if (action === "terminal") {
-                appForm.launchTerminal()
-            } else if (action === "dock" || action === "gui") {
-                appForm.launchDock()
-            } else if (action === "app") {
-                appForm.launchApp()
-            }
-        }
 
         function onQuitApplication() {
             console.log("Quitting application")

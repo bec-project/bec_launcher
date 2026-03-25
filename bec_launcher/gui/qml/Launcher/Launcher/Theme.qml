@@ -6,10 +6,13 @@ QtObject {
     readonly property color backgroundCard: "#161921"
     readonly property color backgroundCardHover: "#1c2029"
     readonly property color backgroundCardSelected: "#1f2533"
+    readonly property color backgroundCardDefault: "#172435"
+    readonly property color backgroundCardSelectedDefault: "#203247"
     readonly property color backgroundInput: "#0d1015"
 
     readonly property color border: "#2b3342"
     readonly property color borderHover: "#3a4556"
+    readonly property color borderDefault: "#52b8eb"
     readonly property color borderSelected: "#3daee9"
 
     readonly property color textPrimary: "#ffffff"
