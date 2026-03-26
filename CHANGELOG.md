@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v0.5.0 (2026-03-26)
+
+### Bug Fixes
+
+- **tooltip**: Styling in the same way as the rest of the app
+  ([`b7d6724`](https://github.com/bec-project/bec_launcher/commit/b7d6724c34c5a934e294288e300397eab9177070))
+
+### Features
+
+- Add tooltip to default app selection
+  ([`704e5cf`](https://github.com/bec-project/bec_launcher/commit/704e5cf7701d42c15fb0580f4742d3f99f6816d6))
+
+- **defaults**: Defaults saving logic changed
+  ([`9b81fcf`](https://github.com/bec-project/bec_launcher/commit/9b81fcfcbd8f5e6be34d7849c3e249fd7b87f3a1))
+
+
 ## v0.4.0 (2026-03-24)
 
 ### Features
