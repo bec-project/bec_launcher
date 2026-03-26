@@ -36,6 +36,11 @@ QtObject {
 
     readonly property color divider: "#2b3342"
 
+    readonly property color tooltipBackground: "#111924"
+    readonly property color tooltipBorder: "#3a4556"
+    readonly property color tooltipText: "#e8edf5"
+    readonly property color tooltipTextMuted: "#b8c0cc"
+
     readonly property int radiusSmall: 6
     readonly property int radiusMedium: 10
 }

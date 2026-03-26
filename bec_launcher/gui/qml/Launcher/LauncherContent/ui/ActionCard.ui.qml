@@ -15,6 +15,9 @@ Rectangle {
     property string buttonText: "Launch"
     property bool isDefault: false
     property bool isHovered: false
+    readonly property string defaultTooltipText: root.isDefault
+        ? "This is the default app selection."
+        : "Set this app selection as the default."
 
     radius: Theme.radiusMedium
     color: root.isDefault ? Theme.backgroundCardDefault
@@ -120,12 +123,30 @@ Rectangle {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
+                            }
 
-                                ToolTip.visible: containsMouse
-                                ToolTip.delay: 300
-                                ToolTip.text: root.isDefault
-                                    ? "This is the default app selection."
-                                    : "Set this app selection as the default."
+                            ToolTip {
+                                parent: defaultToggle
+                                visible: defaultToggleMouseArea.containsMouse
+                                delay: 300
+                                timeout: 3000
+                                x: Math.max(-width + defaultToggle.width, Math.min(0, (defaultToggle.width - width) / 2))
+                                y: defaultToggle.height - 55
+
+                                background: Rectangle {
+                                    radius: Theme.radiusSmall
+                                    color: Theme.tooltipBackground
+                                    border.width: 1
+                                    border.color: Theme.tooltipBorder
+                                }
+
+                                contentItem: Text {
+                                    text: root.defaultTooltipText
+                                    color: Theme.tooltipText
+                                    font.pixelSize: 12
+                                    font.weight: Font.Medium
+                                    wrapMode: Text.WordWrap
+                                }
                             }
                         }
                     }
