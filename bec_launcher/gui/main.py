@@ -52,7 +52,7 @@ def main() -> int:
 
     # Check if we should auto-launch without showing UI
     if backend.shouldAutoLaunch:
-        print(f"[Main] Auto-launching {backend.autoLaunchAction} without UI")
+        print(f"[Main] Auto-launching '{backend.autoLaunchAction}' without showing launcher UI.")
 
         # Use QTimer to launch after event loop starts
         def do_auto_launch():

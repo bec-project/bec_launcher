@@ -44,6 +44,7 @@ class Backend(QObject):
         self._settings = QSettings("PSI", "BECLauncher")
 
         print(f"[Backend] Using deployments path: {self._base_path}")
+        print(f"[Backend] Using settings file: {self._settings.fileName()}")
         if fresh_start:
             print(
                 "[Backend] Fresh start requested - defaults will be preloaded without auto-launch"
@@ -65,7 +66,8 @@ class Backend(QObject):
         self._apply_default_state()
         self._auto_select_single_deployment()
 
-    def _normalize_action(self, action: str) -> str:
+    @staticmethod
+    def _normalize_action(action: str) -> str:
         if action == "gui":
             return "dock"
         return action if action in VALID_ACTIONS else ""
@@ -169,11 +171,7 @@ class Backend(QObject):
 
     def _auto_select_single_deployment(self, emit_signals: bool = False) -> None:
         """Skip Step 1 when exactly one deployment is available."""
-        if (
-            self._should_auto_launch
-            or self._deployment_confirmed
-            or len(self._deployment_names) != 1
-        ):
+        if len(self._deployment_names) != 1 or self._should_auto_launch:
             return
 
         should_emit_selected = self._selected_index != 0
@@ -181,7 +179,19 @@ class Backend(QObject):
 
         self._selected_index = 0
         self._deployment_confirmed = True
-        print(f"[Backend] Auto-selecting the only deployment: {self._deployment_names[0]}")
+        deployment_name = self._deployment_names[0]
+        print(f"[Backend] Auto-selecting the only deployment: {deployment_name}")
+
+        if not self._default_deployment:
+            self._set_default_deployment(deployment_name)
+
+        if self._default_action and not self._fresh_start:
+            self._should_auto_launch = True
+            self._auto_launch_action = self._default_action
+            print(
+                f"[Backend] Will auto-launch default action '{self._default_action}' "
+                f"for the only deployment '{deployment_name}'"
+            )
 
         if emit_signals:
             if should_emit_selected:
