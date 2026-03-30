@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.5.1 (2026-03-30)
+
+### Bug Fixes
+
+- Default deployment selection if single deployment
+  ([`645cd5e`](https://github.com/bec-project/bec_launcher/commit/645cd5ebb7519c40147b7a7480b864cfcea1e9e4))
+
+
 ## v0.5.0 (2026-03-26)
 
 ### Bug Fixes
