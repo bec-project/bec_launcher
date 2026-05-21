@@ -13,6 +13,7 @@ from typing import List
 from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
 
 from bec_launcher.deployments import get_available_deployments, launch_deployment
+from bec_launcher.gui.qt_environment import qt_qml_runtime_environment
 
 DEFAULT_DEPLOYMENTS_PATH = str(Path(sys.prefix).parent.parent.parent / "config" / "bec")
 
@@ -23,6 +24,7 @@ SETTINGS_LAST_DEPLOYMENT = "launcher/last_deployment"
 SETTINGS_LAST_ACTION = "launcher/last_action"
 
 VALID_ACTIONS = {"terminal", "dock", "app"}
+GUI_ACTIONS = {"dock", "app"}
 
 
 class Backend(QObject):
@@ -338,8 +340,13 @@ class Backend(QObject):
         print(f"[Backend] Launching {label} for deployment: {name} at {path}")
 
         try:
+            extra_env = qt_qml_runtime_environment() if action in GUI_ACTIONS else None
             launch_deployment(
-                path, command, activate_env=True, launch_new_terminal=launch_new_terminal
+                path,
+                command,
+                activate_env=True,
+                launch_new_terminal=launch_new_terminal,
+                extra_env=extra_env,
             )
             self.quitApplication.emit()
         except Exception as exc:
