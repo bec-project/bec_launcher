@@ -2,14 +2,20 @@ import argparse
 import os
 import sys
 
-from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from bec_launcher.gui.qt_environment import configure_qt_environment, configure_qt_quick_renderer
 
-from bec_launcher.gui.backend import Backend
+configure_qt_environment()
 
-# Set Qt Quick Controls style to Basic (supports customization)
-os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
+# Qt environment must be configured before importing modules that can initialize Qt internals.
+from PySide6.QtCore import QTimer, QUrl  # noqa: E402
+from PySide6.QtGui import QGuiApplication  # noqa: E402
+from PySide6.QtQuick import QQuickWindow  # noqa: E402
+
+configure_qt_quick_renderer(QQuickWindow)
+
+from PySide6.QtQml import QQmlApplicationEngine  # noqa: E402
+
+from bec_launcher.gui.backend import Backend  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
