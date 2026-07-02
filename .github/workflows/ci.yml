@@ -26,7 +26,7 @@ jobs:
     if: needs.check_pr_status.outputs.branch-pr == ''
     uses: ./.github/workflows/pytest.yml
     with:
-      BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH || 'main' }}
+      BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH || github.head_ref || github.sha }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -35,4 +35,4 @@ jobs:
     if: needs.check_pr_status.outputs.branch-pr == ''
     uses: ./.github/workflows/pytest-matrix.yml
     with:
-      BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH || 'main' }}
+      BEC_LAUNCHER_BRANCH: ${{ inputs.BEC_LAUNCHER_BRANCH || github.head_ref || github.sha }}
