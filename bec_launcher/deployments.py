@@ -70,12 +70,16 @@ def launch_deployment(
         activate_env (bool): Whether to activate the BEC virtual environment.
         launch_new_terminal (bool): Whether to launch the command in a new terminal window.
     """
+    platform = os.uname().sysname
     activation_command = f"source {os.path.join(deployment_path, 'bec_venv', 'bin', 'activate')}"
+
+    if platform == "Linux":
+        cmd = f"PYTHONPYCACHEPREFIX=$HOME/.cache/bec-pycache {cmd}"
+
     if not activate_env:
         full_command = cmd
     else:
         full_command = f"{activation_command} && {cmd}"
-    platform = os.uname().sysname
 
     if platform == "Darwin":  # macOS
         iterm_check = subprocess.run(
