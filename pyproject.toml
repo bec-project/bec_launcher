@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bec_launcher"
-version = "0.5.1"
+version = "0.6.0"
 description = "BEC Launcher: A launcher application for BEC clients and tools."
 requires-python = ">=3.11"
 classifiers = [
@@ -33,6 +33,7 @@ changelog = "https://github.com/bec-project/bec_launcher/blob/main/CHANGELOG.md"
 
 [project.scripts]
 bec_launcher = "bec_launcher.gui.main:main"
+
 
 [tool.hatch.build.targets.wheel]
 include = ["*"]

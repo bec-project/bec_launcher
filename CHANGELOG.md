@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.6.0 (2026-07-02)
+
+### Features
+
+- Add PYTHONPYCACHEPREFIX support for Linux deployments
+  ([`ef0b883`](https://github.com/bec-project/bec_launcher/commit/ef0b8831a6d08c1c3d9a9573e95e9435f1946ab8))
+
+
 ## v0.5.1 (2026-03-30)
 
 ### Bug Fixes
