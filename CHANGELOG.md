@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.6.1 (2026-07-02)
+
+### Bug Fixes
+
+- Ensure PYTHONPYCACHEPREFIX is set correctly in deployment launch command
+  ([`0dca56d`](https://github.com/bec-project/bec_launcher/commit/0dca56dd5affe4f1baf3bdf17a06791ae2517eeb))
+
+- Update BEC_LAUNCHER_BRANCH fallback to use github.head_ref or github.sha
+  ([`97c2a1b`](https://github.com/bec-project/bec_launcher/commit/97c2a1b1217c2fb6ef7afd76b24212244235157a))
+
+
 ## v0.6.0 (2026-07-02)
 
 ### Features
