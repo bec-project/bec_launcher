@@ -238,6 +238,7 @@ def test_launch_deployment_linux(mock_popen, mock_uname, mock_deployment_path):
     assert "--" in popen_args
     assert "bash" in popen_args
     assert "-c" in popen_args
+    assert popen_args[-1].endswith("PYTHONPYCACHEPREFIX=$HOME/.cache/bec-pycache bec")
 
 
 @mock.patch("os.uname")
@@ -332,5 +333,5 @@ def test_launch_deployment_linux_with_activate_env_false(
     assert mock_popen.called
     popen_args = mock_popen.call_args[0][0]
     full_command = popen_args[-1]
-    assert cmd == full_command
+    assert full_command == f"PYTHONPYCACHEPREFIX=$HOME/.cache/bec-pycache {cmd}"
     assert "source" not in full_command
