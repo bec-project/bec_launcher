@@ -54,6 +54,26 @@ def get_available_deployments(base_path: str) -> DeploymentDict:
     return out
 
 
+def deployment_python(deployment_path: str) -> str:
+    """
+    Locate the Python interpreter of a deployment's virtual environment.
+
+    Supports both supported layouts: a nested ``bec_venv`` and a deployment
+    directory that is itself the venv.
+
+    Args:
+        deployment_path (str): The path to the deployment.
+
+    Returns:
+        str: Path to the interpreter, or an empty string when none was found.
+    """
+    for env_dir in (os.path.join(deployment_path, "bec_venv"), deployment_path):
+        python = os.path.join(env_dir, "bin", "python")
+        if os.path.exists(python):
+            return python
+    return ""
+
+
 def launch_deployment(
     deployment_path: str,
     cmd: str,

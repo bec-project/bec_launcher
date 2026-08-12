@@ -76,7 +76,7 @@ def test_single_deployment_with_default_action_auto_launches(monkeypatch):
     assert backend.autoLaunchAction == "dock"
 
 
-def _make_launch_backend(monkeypatch, launched, pycache_prefix=""):
+def _make_launch_backend(monkeypatch, launched, pycache_prefix="", handshake_support=True):
     fake_settings = FakeSettings()
     monkeypatch.setattr(backend_module, "QSettings", lambda *args, **kwargs: fake_settings)
     monkeypatch.setattr(
@@ -86,6 +86,10 @@ def _make_launch_backend(monkeypatch, launched, pycache_prefix=""):
     )
     monkeypatch.setattr(
         backend_module, "launch_deployment", lambda *args, **kwargs: launched.append((args, kwargs))
+    )
+    # Deployments are probed for handshake support; unit tests pin the answer.
+    monkeypatch.setattr(
+        backend_module, "deployment_supports_handshake", lambda path, **kw: handshake_support
     )
     return backend_module.Backend(
         base_path="/tmp/bec", fresh_start=True, pycache_prefix=pycache_prefix
@@ -269,6 +273,93 @@ def test_linux_defaults_pycache_prefix_to_user_cache(monkeypatch, tmp_path):
     import os
 
     assert os.path.isdir(env["PYTHONPYCACHEPREFIX"])
+
+
+def test_legacy_deployment_launches_without_banner_and_quits(monkeypatch):
+    """A deployment without handshake support behaves exactly as before the feature."""
+    QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    quit_emitted = []
+    backend = _make_launch_backend(monkeypatch, launched, handshake_support=False)
+    backend.quitApplication.connect(lambda: quit_emitted.append(True))
+
+    backend.selectDeployment(0)
+    backend.launchApp()
+
+    # No banner, no progress socket, launcher quits right after spawning.
+    assert backend.launchInProgress is False
+    assert backend.launchHasError is False
+    assert quit_emitted == [True]
+    env = launched[0][1]["extra_env"]
+    assert env is None or backend_module.PROGRESS_SOCKET_ENV not in env
+
+
+def test_handshake_probe_result_is_cached_per_deployment(monkeypatch):
+    QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    calls = []
+    backend = _make_launch_backend(monkeypatch, launched)
+    monkeypatch.setattr(
+        backend_module,
+        "deployment_supports_handshake",
+        lambda path, **kw: (calls.append(path), False)[1],
+    )
+
+    backend.selectDeployment(0)
+    backend.launchApp()
+    backend.launchApp()
+
+    assert len(calls) == 1  # probed once, reused afterwards
+
+
+def test_missing_hello_falls_back_to_legacy_behaviour(monkeypatch):
+    """Probe said yes but nothing connects: recover instead of hanging forever."""
+    app = QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    quit_emitted = []
+    backend = _make_launch_backend(monkeypatch, launched)
+    backend.quitApplication.connect(lambda: quit_emitted.append(True))
+
+    backend.selectDeployment(0)
+    backend.launchApp()
+    assert backend.launchInProgress is True  # banner shown optimistically
+
+    # Pretend the hello window elapsed without any client connecting.
+    backend._launch_started_at -= backend_module.HELLO_TIMEOUT_S + 1
+    backend._update_waiting_state()
+    app.processEvents()
+
+    assert quit_emitted == [True]
+    assert backend.launchInProgress is False
+    assert backend.launchHasError is False  # not an error - the GUI is starting fine
+    # The deployment is remembered as unsupported for the rest of the session.
+    assert backend._handshake_support["beamline"] is False
+
+
+def test_hello_prevents_the_legacy_fallback(monkeypatch):
+    app = QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    quit_emitted = []
+    backend = _make_launch_backend(monkeypatch, launched)
+    backend.quitApplication.connect(lambda: quit_emitted.append(True))
+
+    backend.selectDeployment(0)
+    backend.launchApp()
+    env = launched[0][1]["extra_env"]
+    token = env[backend_module.PROGRESS_TOKEN_ENV]
+
+    client = _connect(env[backend_module.PROGRESS_SOCKET_ENV])
+    try:
+        _send(client, {"t": "hello", "token": token, "app": "bec-app", "pid": 999})
+        assert _spin(app, lambda: backend._launch_saw_hello)
+
+        # Even well past the hello window, a connected child keeps the banner alive.
+        backend._launch_started_at -= backend_module.HELLO_TIMEOUT_S + 1
+        backend._update_waiting_state()
+        assert quit_emitted == []
+        assert backend.launchInProgress is True
+    finally:
+        client.close()
 
 
 def test_cold_start_info_sets_flag_and_status(monkeypatch):
