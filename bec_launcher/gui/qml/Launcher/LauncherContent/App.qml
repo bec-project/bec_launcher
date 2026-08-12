@@ -22,6 +22,8 @@ Window {
     AppForm {
         id: appForm
         anchors.fill: parent
+        enabled: !backend.launchInProgress && !backend.launchHasError
+        opacity: backend.launchInProgress || backend.launchHasError ? 0.0 : 1.0
         deploymentNames: backend.deploymentNames
         deploymentPaths: backend.deploymentPaths
         selectedIndex: backend.selectedIndex
@@ -34,6 +36,24 @@ Window {
         onLaunchTerminal: backend.launchTerminal()
         onLaunchDock: backend.launchDock()
         onLaunchApp: backend.launchApp()
+    }
+
+    LaunchBanner {
+        id: launchBanner
+        anchors.fill: parent
+        visible: backend.launchInProgress || backend.launchHasError
+        deploymentName: backend.launchDeployment
+        launchMode: backend.launchMode
+        statusText: backend.launchStatus
+        elapsedSeconds: backend.launchElapsedSeconds
+        hasError: backend.launchHasError
+        stages: backend.launchStages
+        stageCount: backend.launchStageCount
+        expectedStages: backend.launchExpectedStages
+        currentStage: backend.launchCurrentStage
+        isStalled: backend.launchIsStalled
+        coldStart: backend.launchIsColdStart
+        onDismissRequested: backend.dismissLaunchError()
     }
 
     Connections {

@@ -1,3 +1,4 @@
 App 1.0 App.qml
 AppForm 1.0 AppForm.ui.qml
-
+LaunchBanner 1.0 LaunchBanner.qml
+LaunchBannerPreview 1.0 LaunchBannerPreview.qml

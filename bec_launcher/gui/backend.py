@@ -7,12 +7,15 @@ from __future__ import annotations
 
 import os
 import sys
+import time
+import uuid
 from pathlib import Path
 from typing import List
 
-from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, QTimer, Signal, Slot
 
 from bec_launcher.deployments import get_available_deployments, launch_deployment
+from bec_launcher.gui.progress_server import ProgressServer
 
 DEFAULT_DEPLOYMENTS_PATH = str(Path(sys.prefix).parent.parent.parent / "config" / "bec")
 
@@ -22,7 +25,32 @@ SETTINGS_REMEMBER_CHOICE = "launcher/remember_choice"
 SETTINGS_LAST_DEPLOYMENT = "launcher/last_deployment"
 SETTINGS_LAST_ACTION = "launcher/last_action"
 
+# Handshake env vars injected into the launched GUI process (child side lives in
+# bec_widgets.utils.launch_progress).
+PROGRESS_SOCKET_ENV = "BEC_LAUNCH_PROGRESS_SOCKET"
+PROGRESS_TOKEN_ENV = "BEC_LAUNCH_PROGRESS_TOKEN"
+PROGRESS_APP_ENV = "BEC_LAUNCH_APP"
+
+# Known bec-app startup stages; used only as the denominator for the banner's
+# step meter. Extra or missing stages are tolerated gracefully.
+EXPECTED_STAGES = (
+    "module imports",
+    "QApplication",
+    "theme applied",
+    "BEC connection + base window",
+    "views added",
+    "guided tour",
+    "main window built",
+    "window shown",
+    "interactive",
+)
+
+# Time without any progress message (and without a ready edge) before the banner
+# flags the launch as stalled. Generous, to tolerate cold NFS/Redis starts.
+STALL_TIMEOUT_S = 45.0
+
 VALID_ACTIONS = {"terminal", "dock", "app"}
+GUI_ACTIONS = {"dock", "app"}
 
 
 class Backend(QObject):
@@ -34,6 +62,7 @@ class Backend(QObject):
     deploymentConfirmedChanged = Signal()
     defaultDeploymentChanged = Signal()
     defaultActionChanged = Signal()
+    launchStateChanged = Signal()
     quitApplication = Signal()
 
     def __init__(self, base_path: str | None = None, fresh_start: bool = False):
@@ -44,7 +73,8 @@ class Backend(QObject):
         self._settings = QSettings("PSI", "BECLauncher")
 
         print(f"[Backend] Using deployments path: {self._base_path}")
-        print(f"[Backend] Using settings file: {self._settings.fileName()}")
+        settings_file = getattr(self._settings, "fileName", lambda: "")()
+        print(f"[Backend] Using settings file: {settings_file}")
         if fresh_start:
             print(
                 "[Backend] Fresh start requested - defaults will be preloaded without auto-launch"
@@ -59,6 +89,33 @@ class Backend(QObject):
         self._default_action = ""
         self._should_auto_launch = False
         self._auto_launch_action = ""
+        self._launch_in_progress = False
+        self._launch_has_error = False
+        self._launch_status = ""
+        self._launch_mode = ""
+        self._launch_deployment = ""
+        self._launch_started_at = 0.0
+        self._launch_elapsed_seconds = 0
+        self._launch_stages: list[dict] = []
+        self._launch_current_stage = ""
+        self._launch_is_stalled = False
+        self._launch_last_activity = 0.0
+        self._launch_child_proc = None  # subprocess.Popen | None (no-terminal path)
+        self._launch_token = ""
+
+        self._launch_cold_start = False
+
+        self._progress_server = ProgressServer(self)
+        self._progress_server.helloReceived.connect(self._on_child_hello)
+        self._progress_server.stageReceived.connect(self._on_child_stage)
+        self._progress_server.infoReceived.connect(self._on_child_info)
+        self._progress_server.readyReceived.connect(self._on_child_ready)
+        self._progress_server.errorReceived.connect(self._on_child_error)
+        self._progress_server.clientDisconnected.connect(self._on_child_disconnected)
+
+        self._elapsed_timer = QTimer(self)
+        self._elapsed_timer.setInterval(250)
+        self._elapsed_timer.timeout.connect(self._update_waiting_state)
 
         self._load_deployments()
         self._migrate_legacy_settings()
@@ -66,11 +123,154 @@ class Backend(QObject):
         self._apply_default_state()
         self._auto_select_single_deployment()
 
+    def __del__(self):
+        try:
+            self._progress_server.stop()
+        except Exception:  # pragma: no cover - best-effort teardown
+            pass
+
     @staticmethod
     def _normalize_action(action: str) -> str:
         if action == "gui":
             return "dock"
         return action if action in VALID_ACTIONS else ""
+
+    def _prepare_progress_channel(self, label: str) -> dict[str, str]:
+        """Open the per-launch progress socket and return the child env vars."""
+        self._progress_server.stop()
+        self._launch_token = uuid.uuid4().hex
+        socket_path = self._progress_server.start(self._launch_token)
+        return {
+            PROGRESS_SOCKET_ENV: socket_path,
+            PROGRESS_TOKEN_ENV: self._launch_token,
+            PROGRESS_APP_ENV: label,
+        }
+
+    def _touch_activity(self) -> None:
+        self._launch_last_activity = time.monotonic()
+        if self._launch_is_stalled:
+            self._launch_is_stalled = False
+
+    # -- progress-server signal handlers ------------------------------------
+    def _on_child_hello(self, app: str, pid: int) -> None:
+        self._touch_activity()
+        # The child connects before its heavy imports run, so this is what it is
+        # actually doing until the first stage mark arrives.
+        self._launch_status = "Loading Python modules..."
+        self.launchStateChanged.emit()
+
+    def _on_child_info(self, info: dict) -> None:
+        self._touch_activity()
+        if info.get("cold_start"):
+            self._launch_cold_start = True
+            self._launch_status = "First launch — compiling Python bytecode..."
+        self.launchStateChanged.emit()
+
+    def _on_child_stage(self, name: str, delta_ms: float, total_ms: float) -> None:
+        self._touch_activity()
+        # ``ms`` is the per-stage duration (what the banner shows per row); ``total_ms``
+        # is cumulative since process start.
+        self._launch_stages = self._launch_stages + [
+            {"name": name, "ms": int(round(delta_ms)), "total_ms": int(round(total_ms))}
+        ]
+        self._launch_current_stage = name
+        self._launch_status = name
+        self.launchStateChanged.emit()
+
+    def _on_child_ready(self, total_ms: float) -> None:
+        self._finalize_ready()
+
+    def _on_child_error(self, message: str) -> None:
+        self._set_launch_error(message or "The GUI reported an error during startup.")
+
+    def _on_child_disconnected(self) -> None:
+        # The socket closed. If it happened before the ready edge while we were
+        # still waiting, the GUI process died during startup.
+        if self._launch_in_progress and not self._progress_server.got_ready:
+            self._set_launch_error("The GUI process exited before it finished starting.")
+
+    def _finalize_ready(self) -> None:
+        self._elapsed_timer.stop()
+        self._launch_in_progress = False
+        self._launch_is_stalled = False
+        self._progress_server.stop()
+        self._launch_child_proc = None
+        self._launch_current_stage = ""
+        self._launch_status = "GUI ready"
+        self.launchStateChanged.emit()
+        self.quitApplication.emit()
+
+    def _begin_launch_banner(self, label: str, deployment_name: str) -> None:
+        self._launch_in_progress = True
+        self._launch_has_error = False
+        self._launch_is_stalled = False
+        self._launch_cold_start = False
+        self._launch_mode = label
+        self._launch_deployment = deployment_name
+        self._launch_status = "Starting GUI..."
+        self._launch_stages = []
+        self._launch_current_stage = ""
+        self._launch_child_proc = None
+        self._launch_started_at = time.monotonic()
+        self._launch_last_activity = self._launch_started_at
+        self._launch_elapsed_seconds = 0
+        self._elapsed_timer.start()
+        self.launchStateChanged.emit()
+
+    def _set_launch_error(self, message: str) -> None:
+        self._launch_in_progress = False
+        self._launch_has_error = True
+        self._launch_is_stalled = False
+        self._launch_status = message
+        self._elapsed_timer.stop()
+        self._progress_server.stop()
+        self.launchStateChanged.emit()
+
+    @Slot()
+    def dismissLaunchError(self) -> None:
+        """Return from the banner to the deployment picker (recovery affordance)."""
+        self._elapsed_timer.stop()
+        self._progress_server.stop()
+        self._launch_in_progress = False
+        self._launch_has_error = False
+        self._launch_is_stalled = False
+        self._launch_cold_start = False
+        self._launch_status = ""
+        self._launch_stages = []
+        self._launch_current_stage = ""
+        self._launch_child_proc = None
+        self.launchStateChanged.emit()
+
+    def _update_elapsed(self) -> None:
+        if not self._launch_started_at:
+            return
+        elapsed = int(time.monotonic() - self._launch_started_at)
+        if elapsed != self._launch_elapsed_seconds:
+            self._launch_elapsed_seconds = elapsed
+            self.launchStateChanged.emit()
+
+    def _update_waiting_state(self) -> None:
+        self._update_elapsed()
+        if not self._launch_in_progress:
+            return
+        self._check_child_liveness()
+        self._check_stall()
+
+    def _check_child_liveness(self) -> None:
+        """For the no-terminal path, detect a child that exited before ready."""
+        proc = self._launch_child_proc
+        if proc is None or self._progress_server.got_ready:
+            return
+        if proc.poll() is not None:
+            self._set_launch_error("The GUI process exited before it finished starting.")
+
+    def _check_stall(self) -> None:
+        if self._progress_server.got_ready or self._launch_is_stalled:
+            return
+        if time.monotonic() - self._launch_last_activity > STALL_TIMEOUT_S:
+            self._launch_is_stalled = True
+            self._launch_status = "Still starting — this can take a while on a cold cache."
+            self.launchStateChanged.emit()
 
     def _persist_default_deployment(self) -> None:
         if self._default_deployment:
@@ -258,6 +458,56 @@ class Backend(QObject):
     def autoLaunchAction(self) -> str:
         return self._auto_launch_action
 
+    @Property(bool, notify=launchStateChanged)
+    def launchInProgress(self) -> bool:
+        return self._launch_in_progress
+
+    @Property(bool, notify=launchStateChanged)
+    def launchHasError(self) -> bool:
+        return self._launch_has_error
+
+    @Property(str, notify=launchStateChanged)
+    def launchStatus(self) -> str:
+        return self._launch_status
+
+    @Property(str, notify=launchStateChanged)
+    def launchMode(self) -> str:
+        return self._launch_mode
+
+    @Property(str, notify=launchStateChanged)
+    def launchDeployment(self) -> str:
+        return self._launch_deployment
+
+    @Property(int, notify=launchStateChanged)
+    def launchElapsedSeconds(self) -> int:
+        return self._launch_elapsed_seconds
+
+    @Property(list, notify=launchStateChanged)
+    def launchStages(self) -> list:
+        """List of completed startup stages as ``{"name": str, "ms": int}`` dicts."""
+        return self._launch_stages
+
+    @Property(int, notify=launchStateChanged)
+    def launchStageCount(self) -> int:
+        return len(self._launch_stages)
+
+    @Property(int, constant=True)
+    def launchExpectedStages(self) -> int:
+        return len(EXPECTED_STAGES)
+
+    @Property(str, notify=launchStateChanged)
+    def launchCurrentStage(self) -> str:
+        return self._launch_current_stage
+
+    @Property(bool, notify=launchStateChanged)
+    def launchIsStalled(self) -> bool:
+        return self._launch_is_stalled
+
+    @Property(bool, notify=launchStateChanged)
+    def launchIsColdStart(self) -> bool:
+        """True when the child reported missing bytecode caches (first launch)."""
+        return self._launch_cold_start
+
     @Slot(int)
     def selectDeployment(self, index: int) -> None:
         if index < 0 or index >= len(self._deployment_names):
@@ -338,12 +588,28 @@ class Backend(QObject):
         print(f"[Backend] Launching {label} for deployment: {name} at {path}")
 
         try:
-            launch_deployment(
-                path, command, activate_env=True, launch_new_terminal=launch_new_terminal
+            extra_env = None
+            if action in GUI_ACTIONS:
+                self._begin_launch_banner(label, name)
+                extra_env = self._prepare_progress_channel(label)
+            proc = launch_deployment(
+                path,
+                command,
+                activate_env=True,
+                launch_new_terminal=launch_new_terminal,
+                extra_env=extra_env,
             )
-            self.quitApplication.emit()
+            # Only the no-terminal path hands back the actual GUI child process,
+            # so we can watch it for an early exit (crash before ready).
+            if action in GUI_ACTIONS and not launch_new_terminal:
+                self._launch_child_proc = proc
+            if action not in GUI_ACTIONS:
+                self.quitApplication.emit()
         except Exception as exc:
-            print(f"[Backend] Error launching {label}: {exc}")
+            message = f"Error launching {label}: {exc}"
+            print(f"[Backend] {message}")
+            if action in GUI_ACTIONS:
+                self._set_launch_error(message)
 
     @Slot()
     def refresh(self) -> None:

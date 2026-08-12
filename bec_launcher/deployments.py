@@ -5,6 +5,7 @@ Simple helpers for fetching available deployments.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from typing import TypedDict
 
@@ -54,8 +55,12 @@ def get_available_deployments(base_path: str) -> DeploymentDict:
 
 
 def launch_deployment(
-    deployment_path: str, cmd: str, activate_env: bool = True, launch_new_terminal: bool = True
-) -> None:
+    deployment_path: str,
+    cmd: str,
+    activate_env: bool = True,
+    launch_new_terminal: bool = True,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.Popen | None:
     """
     Activate the BEC environment for the specified deployment
     and execute the given command. To this end, we open a new terminal window
@@ -69,17 +74,56 @@ def launch_deployment(
         cmd (str): The command to execute after activation.
         activate_env (bool): Whether to activate the BEC virtual environment.
         launch_new_terminal (bool): Whether to launch the command in a new terminal window.
+        extra_env (dict[str, str] | None): Environment variables to set for the launched command.
+
+    Returns:
+        subprocess.Popen | None: The launched GUI process when ``launch_new_terminal`` is
+        False (so the caller can watch it for an early exit); ``None`` for the
+        terminal-based paths, where only an intermediate terminal/osascript process exists.
     """
-    platform = os.uname().sysname
-    activation_command = f"source {os.path.join(deployment_path, 'bec_venv', 'bin', 'activate')}"
+    activation_script = os.path.join(deployment_path, "bec_venv", "bin", "activate")
+    if not os.path.exists(activation_script):
+        root_activation_script = os.path.join(deployment_path, "bin", "activate")
+        if os.path.exists(root_activation_script):
+            activation_script = root_activation_script
+    env_path = os.path.dirname(os.path.dirname(activation_script))
 
-    if platform == "Linux":
-        cmd = f"PYTHONPYCACHEPREFIX=$HOME/.cache/bec-pycache {cmd}"
+    if not launch_new_terminal:
+        command = shlex.split(cmd)
+        if not command:
+            raise ValueError("Command must not be empty.")
+        env = os.environ.copy()
+        if extra_env:
+            env.update({key: str(value) for key, value in extra_env.items()})
+        if activate_env:
+            env["VIRTUAL_ENV"] = env_path
+            env.pop("PYTHONHOME", None)
+            # The deployment venv must be authoritative: an inherited PYTHONPATH
+            # (e.g. PyCharm's "add content roots", conda hooks) would shadow the
+            # venv's site-packages with foreign checkouts.
+            env.pop("PYTHONPATH", None)
+            env["PATH"] = os.pathsep.join([os.path.join(env_path, "bin"), env.get("PATH", "")])
+            executable = os.path.join(env_path, "bin", command[0])
+            if os.path.exists(executable):
+                command[0] = executable
+        return subprocess.Popen(command, env=env, start_new_session=True)
 
+    # Same isolation for the terminal path: on Linux the terminal inherits the
+    # launcher's environment, and shell rc files may set PYTHONPATH on macOS too.
+    activation_command = f"unset PYTHONPATH PYTHONHOME; source {shlex.quote(activation_script)}"
+    env_prefix = ""
+    if extra_env:
+        env_prefix = " ".join(
+            f"{key}={shlex.quote(str(value))}" for key, value in extra_env.items()
+        )
+        env_prefix += " "
+
+    command = f"{env_prefix}{cmd}"
     if not activate_env:
-        full_command = cmd
+        full_command = command
     else:
-        full_command = f"{activation_command} && {cmd}"
+        full_command = f"{activation_command} && {command}"
+    platform = os.uname().sysname
 
     if platform == "Darwin":  # macOS
         iterm_check = subprocess.run(

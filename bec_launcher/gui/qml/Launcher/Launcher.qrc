@@ -8,6 +8,8 @@
         <file>Launcher/Theme.qml</file>
         <file>LauncherContent/App.qml</file>
         <file>LauncherContent/AppForm.ui.qml</file>
+        <file>LauncherContent/LaunchBanner.qml</file>
+        <file>LauncherContent/LaunchBannerPreview.qml</file>
         <file>LauncherContent/images/BEC_app.png</file>
         <file>LauncherContent/images/BEC_comp.png</file>
         <file>LauncherContent/images/BEC_terminal.png</file>
