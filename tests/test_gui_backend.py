@@ -76,7 +76,7 @@ def test_single_deployment_with_default_action_auto_launches(monkeypatch):
     assert backend.autoLaunchAction == "dock"
 
 
-def _make_launch_backend(monkeypatch, launched):
+def _make_launch_backend(monkeypatch, launched, pycache_prefix=""):
     fake_settings = FakeSettings()
     monkeypatch.setattr(backend_module, "QSettings", lambda *args, **kwargs: fake_settings)
     monkeypatch.setattr(
@@ -87,7 +87,9 @@ def _make_launch_backend(monkeypatch, launched):
     monkeypatch.setattr(
         backend_module, "launch_deployment", lambda *args, **kwargs: launched.append((args, kwargs))
     )
-    return backend_module.Backend(base_path="/tmp/bec", fresh_start=True)
+    return backend_module.Backend(
+        base_path="/tmp/bec", fresh_start=True, pycache_prefix=pycache_prefix
+    )
 
 
 def test_gui_launch_opens_progress_channel_and_finishes_on_ready(monkeypatch):
@@ -212,6 +214,61 @@ def test_ready_with_trailing_data_finalizes_cleanly(monkeypatch):
         assert backend.launchStatus == "GUI ready"
     finally:
         client.close()
+
+
+def test_pycache_prefix_is_injected_into_all_launch_actions(monkeypatch, tmp_path):
+    QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    prefix = str(tmp_path / "pycache")
+    backend = _make_launch_backend(monkeypatch, launched, pycache_prefix=prefix)
+
+    # The prefix directory is created eagerly so the first launch can use it.
+    import os
+
+    assert os.path.isdir(prefix)
+
+    backend.selectDeployment(0)
+    backend.launchTerminal()
+    env = launched[0][1]["extra_env"]
+    assert env == {"PYTHONPYCACHEPREFIX": prefix}
+
+    backend.launchApp()
+    env = launched[1][1]["extra_env"]
+    assert env["PYTHONPYCACHEPREFIX"] == prefix
+    assert backend_module.PROGRESS_SOCKET_ENV in env  # progress vars still present
+
+
+def test_no_pycache_prefix_keeps_terminal_env_untouched(monkeypatch):
+    """Off Linux an unset prefix injects nothing; Linux has its own default (below)."""
+    QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    from unittest import mock
+
+    monkeypatch.setattr("os.uname", lambda: mock.Mock(sysname="Darwin"))
+    backend = _make_launch_backend(monkeypatch, launched)
+
+    backend.selectDeployment(0)
+    backend.launchTerminal()
+    assert launched[0][1]["extra_env"] is None
+
+
+def test_linux_defaults_pycache_prefix_to_user_cache(monkeypatch, tmp_path):
+    QCoreApplication.instance() or QCoreApplication([])
+    launched = []
+    from unittest import mock
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr("os.uname", lambda: mock.Mock(sysname="Linux"))
+    backend = _make_launch_backend(monkeypatch, launched)
+
+    backend.selectDeployment(0)
+    backend.launchTerminal()
+    env = launched[0][1]["extra_env"]
+    assert env["PYTHONPYCACHEPREFIX"] == str(tmp_path / ".cache" / "bec-pycache")
+
+    import os
+
+    assert os.path.isdir(env["PYTHONPYCACHEPREFIX"])
 
 
 def test_cold_start_info_sets_flag_and_status(monkeypatch):

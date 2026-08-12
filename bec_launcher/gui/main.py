@@ -30,6 +30,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Base path for deployments, typically /sls/<beamline>/config/bec",
     )
+    parser.add_argument(
+        "--pycache-prefix",
+        type=str,
+        default=os.environ.get("BEC_LAUNCHER_PYCACHE_PREFIX") or None,
+        help=(
+            "Directory for Python bytecode caches (PYTHONPYCACHEPREFIX). Applied to the "
+            "background cache warm-up and exported to every launched deployment — useful "
+            "when deployments live on read-only or slow (NFS) storage. Defaults to "
+            "$BEC_LAUNCHER_PYCACHE_PREFIX."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -45,7 +56,11 @@ def main() -> int:
     app.setApplicationName("BEC")
 
     # Backend injection with fresh_start option
-    backend = Backend(base_path=args.base_path, fresh_start=args.fresh_start)
+    backend = Backend(
+        base_path=args.base_path,
+        fresh_start=args.fresh_start,
+        pycache_prefix=args.pycache_prefix or "",
+    )
 
     # Connect quitApplication signal to app.quit
     backend.quitApplication.connect(app.quit)

@@ -65,12 +65,15 @@ class Backend(QObject):
     launchStateChanged = Signal()
     quitApplication = Signal()
 
-    def __init__(self, base_path: str | None = None, fresh_start: bool = False):
+    def __init__(
+        self, base_path: str | None = None, fresh_start: bool = False, pycache_prefix: str = ""
+    ):
         super().__init__()
 
         self._base_path = base_path or DEFAULT_DEPLOYMENTS_PATH
         self._fresh_start = fresh_start
         self._settings = QSettings("PSI", "BECLauncher")
+        self._pycache_prefix = self._setup_pycache_prefix(pycache_prefix)
 
         print(f"[Backend] Using deployments path: {self._base_path}")
         settings_file = getattr(self._settings, "fileName", lambda: "")()
@@ -134,6 +137,35 @@ class Backend(QObject):
         if action == "gui":
             return "dock"
         return action if action in VALID_ACTIONS else ""
+
+    @staticmethod
+    def _setup_pycache_prefix(pycache_prefix: str) -> str:
+        """Normalize and create the bytecode-cache prefix directory.
+
+        On Linux an unset prefix defaults to ``~/.cache/bec-pycache`` (deployment
+        venvs there are typically read-only NFS), matching the behavior the
+        launcher previously hardcoded in ``launch_deployment``. macOS keeps no
+        default. ``--pycache-prefix`` / ``$BEC_LAUNCHER_PYCACHE_PREFIX`` override.
+        """
+        if not pycache_prefix and os.uname().sysname == "Linux":
+            pycache_prefix = "~/.cache/bec-pycache"
+        if not pycache_prefix:
+            return ""
+        prefix = os.path.abspath(os.path.expanduser(pycache_prefix))
+        try:
+            os.makedirs(prefix, exist_ok=True)
+        except OSError as exc:
+            print(f"[Backend] Ignoring unusable pycache prefix '{prefix}': {exc}")
+            return ""
+        print(f"[Backend] Using Python cache prefix: {prefix}")
+        return prefix
+
+    def _launch_base_env(self) -> dict[str, str]:
+        """Env vars every launched deployment receives, regardless of action."""
+        env: dict[str, str] = {}
+        if self._pycache_prefix:
+            env["PYTHONPYCACHEPREFIX"] = self._pycache_prefix
+        return env
 
     def _prepare_progress_channel(self, label: str) -> dict[str, str]:
         """Open the per-launch progress socket and return the child env vars."""
@@ -588,16 +620,16 @@ class Backend(QObject):
         print(f"[Backend] Launching {label} for deployment: {name} at {path}")
 
         try:
-            extra_env = None
+            extra_env = self._launch_base_env()
             if action in GUI_ACTIONS:
                 self._begin_launch_banner(label, name)
-                extra_env = self._prepare_progress_channel(label)
+                extra_env.update(self._prepare_progress_channel(label))
             proc = launch_deployment(
                 path,
                 command,
                 activate_env=True,
                 launch_new_terminal=launch_new_terminal,
-                extra_env=extra_env,
+                extra_env=extra_env or None,
             )
             # Only the no-terminal path hands back the actual GUI child process,
             # so we can watch it for an early exit (crash before ready).
