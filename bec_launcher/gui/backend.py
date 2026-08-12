@@ -15,6 +15,7 @@ from typing import List
 from PySide6.QtCore import Property, QObject, QSettings, QTimer, Signal, Slot
 
 from bec_launcher.deployments import get_available_deployments, launch_deployment
+from bec_launcher.gui.cache_warmup import DeploymentCacheWarmup
 from bec_launcher.gui.progress_server import ProgressServer
 
 DEFAULT_DEPLOYMENTS_PATH = str(Path(sys.prefix).parent.parent.parent / "config" / "bec")
@@ -49,6 +50,10 @@ EXPECTED_STAGES = (
 # flags the launch as stalled. Generous, to tolerate cold NFS/Redis starts.
 STALL_TIMEOUT_S = 45.0
 
+# Delay before the background cache warm-up starts, so it never competes with the
+# launcher's own startup for I/O.
+WARMUP_START_DELAY_MS = 1500
+
 VALID_ACTIONS = {"terminal", "dock", "app"}
 GUI_ACTIONS = {"dock", "app"}
 
@@ -63,6 +68,7 @@ class Backend(QObject):
     defaultDeploymentChanged = Signal()
     defaultActionChanged = Signal()
     launchStateChanged = Signal()
+    cacheWarmupChanged = Signal()
     quitApplication = Signal()
 
     def __init__(
@@ -120,11 +126,18 @@ class Backend(QObject):
         self._elapsed_timer.setInterval(250)
         self._elapsed_timer.timeout.connect(self._update_waiting_state)
 
+        self._cache_warmup = DeploymentCacheWarmup(self, pycache_prefix=self._pycache_prefix)
+        self._cache_warmup.stateChanged.connect(self.cacheWarmupChanged)
+
         self._load_deployments()
         self._migrate_legacy_settings()
         self._load_saved_defaults()
         self._apply_default_state()
         self._auto_select_single_deployment()
+
+        # Use the time the user spends choosing a deployment/action to pre-compile
+        # bytecode caches for all available deployments in the background.
+        QTimer.singleShot(WARMUP_START_DELAY_MS, self._start_cache_warmup)
 
     def __del__(self):
         try:
@@ -539,6 +552,17 @@ class Backend(QObject):
     def launchIsColdStart(self) -> bool:
         """True when the child reported missing bytecode caches (first launch)."""
         return self._launch_cold_start
+
+    def _start_cache_warmup(self) -> None:
+        self._cache_warmup.start(dict(self._deployment_paths))
+
+    @Property(bool, notify=cacheWarmupChanged)
+    def cacheWarmupActive(self) -> bool:
+        return self._cache_warmup.active
+
+    @Property(str, notify=cacheWarmupChanged)
+    def cacheWarmupText(self) -> str:
+        return self._cache_warmup.status_text
 
     @Slot(int)
     def selectDeployment(self, index: int) -> None:
