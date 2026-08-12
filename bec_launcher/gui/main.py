@@ -50,18 +50,13 @@ def main() -> int:
     # Connect quitApplication signal to app.quit
     backend.quitApplication.connect(app.quit)
 
-    # Check if we should auto-launch without showing UI
-    if backend.shouldAutoLaunch:
+    # Terminal auto-launch does not need a launcher-side GUI readiness banner.
+    if backend.shouldAutoLaunch and backend.autoLaunchAction == "terminal":
         print(f"[Main] Auto-launching '{backend.autoLaunchAction}' without showing launcher UI.")
 
         # Use QTimer to launch after event loop starts
         def do_auto_launch():
-            if backend.autoLaunchAction == "terminal":
-                backend.launchTerminal()
-            elif backend.autoLaunchAction in {"dock", "gui"}:
-                backend.launchDock()
-            elif backend.autoLaunchAction == "app":
-                backend.launchApp()
+            backend.launchTerminal()
 
         QTimer.singleShot(0, do_auto_launch)
         return app.exec()
@@ -89,6 +84,17 @@ def main() -> int:
 
     if not engine.rootObjects():
         return 1
+
+    if backend.shouldAutoLaunch:
+        print(f"[Main] Auto-launching '{backend.autoLaunchAction}' with launch banner.")
+
+        def do_auto_launch():
+            if backend.autoLaunchAction in {"dock", "gui"}:
+                backend.launchDock()
+            elif backend.autoLaunchAction == "app":
+                backend.launchApp()
+
+        QTimer.singleShot(0, do_auto_launch)
 
     return app.exec()
 

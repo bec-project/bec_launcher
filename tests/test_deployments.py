@@ -4,6 +4,7 @@ Tests for deployments module.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -238,7 +239,10 @@ def test_launch_deployment_linux(mock_popen, mock_uname, mock_deployment_path):
     assert "--" in popen_args
     assert "bash" in popen_args
     assert "-c" in popen_args
-    assert popen_args[-1].endswith("PYTHONPYCACHEPREFIX=$HOME/.cache/bec-pycache bec")
+    # The pycache prefix is no longer hardcoded here; the Backend injects it via
+    # extra_env (defaulting to ~/.cache/bec-pycache on Linux).
+    assert popen_args[-1].endswith("bec")
+    assert "PYTHONPYCACHEPREFIX" not in popen_args[-1]
 
 
 @mock.patch("os.uname")
@@ -273,6 +277,103 @@ def test_launch_deployment_with_activate_env_true(
     assert "bec_venv/bin/activate" in applescript
     assert "&&" in applescript
     assert cmd in applescript
+
+
+@mock.patch("os.uname")
+@mock.patch("subprocess.Popen")
+@mock.patch("subprocess.run")
+def test_launch_deployment_supports_root_venv_layout(mock_run, mock_popen, mock_uname, tmpdir):
+    mock_uname.return_value = mock.Mock(sysname="Darwin")
+    mock_run.return_value = mock.Mock(returncode=0)
+
+    deployment_path = Path(tmpdir) / "real_one"
+    bin_path = deployment_path / "bin"
+    bin_path.mkdir(parents=True)
+    (bin_path / "activate").touch()
+
+    launch_deployment(str(deployment_path), "bec-app")
+
+    applescript = mock_popen.call_args[0][0][2]
+    assert f"source {deployment_path}/bin/activate" in applescript
+    assert "bec-app" in applescript
+
+
+@mock.patch("subprocess.Popen")
+def test_launch_deployment_without_terminal_starts_executable_directly(mock_popen, tmpdir):
+    deployment_path = Path(tmpdir) / "real_one"
+    bin_path = deployment_path / "bin"
+    bin_path.mkdir(parents=True)
+    (bin_path / "activate").touch()
+    (bin_path / "bec-app").touch()
+
+    launch_deployment(
+        str(deployment_path), "bec-app", launch_new_terminal=False, extra_env={"TOKEN": "abc"}
+    )
+
+    command = mock_popen.call_args.args[0]
+    kwargs = mock_popen.call_args.kwargs
+    assert command == [str(bin_path / "bec-app")]
+    assert kwargs["env"]["TOKEN"] == "abc"
+    assert kwargs["env"]["VIRTUAL_ENV"] == str(deployment_path)
+    assert kwargs["env"]["PATH"].split(os.pathsep)[0] == str(bin_path)
+    assert kwargs["start_new_session"] is True
+
+
+@mock.patch("subprocess.Popen")
+def test_launch_deployment_without_terminal_strips_inherited_pythonpath(
+    mock_popen, tmpdir, monkeypatch
+):
+    """An inherited PYTHONPATH (e.g. PyCharm content roots) must not shadow the venv."""
+    deployment_path = Path(tmpdir) / "real_one"
+    bin_path = deployment_path / "bin"
+    bin_path.mkdir(parents=True)
+    (bin_path / "activate").touch()
+
+    monkeypatch.setenv("PYTHONPATH", "/some/foreign/checkout")
+    monkeypatch.setenv("PYTHONHOME", "/some/foreign/python")
+
+    launch_deployment(str(deployment_path), "bec-app", launch_new_terminal=False)
+
+    env = mock_popen.call_args.kwargs["env"]
+    assert "PYTHONPATH" not in env
+    assert "PYTHONHOME" not in env
+
+
+@mock.patch("os.uname")
+@mock.patch("subprocess.Popen")
+@mock.patch("subprocess.run")
+def test_launch_deployment_terminal_unsets_pythonpath_in_activation(
+    mock_run, mock_popen, mock_uname, mock_deployment_path
+):
+    """The terminal path inherits the launcher env on Linux — activation must unset it."""
+    mock_uname.return_value = mock.Mock(sysname="Darwin")
+    mock_run.return_value = mock.Mock(returncode=0)
+
+    launch_deployment(mock_deployment_path, "bec", activate_env=True)
+
+    applescript = mock_popen.call_args[0][0][2]
+    assert "unset PYTHONPATH PYTHONHOME;" in applescript
+
+
+@mock.patch("os.uname")
+@mock.patch("subprocess.Popen")
+@mock.patch("subprocess.run")
+def test_launch_deployment_injects_extra_env(
+    mock_run, mock_popen, mock_uname, mock_deployment_path
+):
+    mock_uname.return_value = mock.Mock(sysname="Darwin")
+    mock_run.return_value = mock.Mock(returncode=0)
+
+    launch_deployment(
+        mock_deployment_path,
+        "bec-app",
+        extra_env={"BEC_WIDGETS_LAUNCH_READY_FILE": "/tmp/ready file.json", "TOKEN": "abc"},
+    )
+
+    applescript = mock_popen.call_args[0][0][2]
+    assert "BEC_WIDGETS_LAUNCH_READY_FILE='/tmp/ready file.json'" in applescript
+    assert "TOKEN=abc" in applescript
+    assert "bec-app" in applescript
 
 
 @mock.patch("os.uname")
@@ -333,5 +434,6 @@ def test_launch_deployment_linux_with_activate_env_false(
     assert mock_popen.called
     popen_args = mock_popen.call_args[0][0]
     full_command = popen_args[-1]
-    assert full_command == f"PYTHONPYCACHEPREFIX=$HOME/.cache/bec-pycache {cmd}"
+    # Prefix injection moved to the Backend (extra_env); the raw command is untouched.
+    assert full_command == cmd
     assert "source" not in full_command
