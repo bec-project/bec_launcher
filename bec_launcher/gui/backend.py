@@ -16,6 +16,7 @@ from PySide6.QtCore import Property, QObject, QSettings, QTimer, Signal, Slot
 
 from bec_launcher.deployments import get_available_deployments, launch_deployment
 from bec_launcher.gui.cache_warmup import DeploymentCacheWarmup
+from bec_launcher.gui.handshake_support import deployment_supports_handshake
 from bec_launcher.gui.progress_server import ProgressServer
 
 DEFAULT_DEPLOYMENTS_PATH = str(Path(sys.prefix).parent.parent.parent / "config" / "bec")
@@ -49,6 +50,12 @@ EXPECTED_STAGES = (
 # Time without any progress message (and without a ready edge) before the banner
 # flags the launch as stalled. Generous, to tolerate cold NFS/Redis starts.
 STALL_TIMEOUT_S = 45.0
+
+# Time to wait for the child's initial ``hello`` before assuming the deployment
+# predates the handshake and falling back to the legacy behaviour. The child
+# connects during its very first import, long before the heavy GUI imports, so
+# this only needs to cover interpreter startup on cold storage.
+HELLO_TIMEOUT_S = 25.0
 
 # Delay before the background cache warm-up starts, so it never competes with the
 # launcher's own startup for I/O.
@@ -111,6 +118,9 @@ class Backend(QObject):
         self._launch_last_activity = 0.0
         self._launch_child_proc = None  # subprocess.Popen | None (no-terminal path)
         self._launch_token = ""
+        self._launch_saw_hello = False
+        # Cached per-deployment handshake capability (see handshake_support).
+        self._handshake_support: dict[str, bool | None] = {}
 
         self._launch_cold_start = False
 
@@ -173,6 +183,24 @@ class Backend(QObject):
         print(f"[Backend] Using Python cache prefix: {prefix}")
         return prefix
 
+    def _deployment_handshake_support(self, name: str, path: str) -> bool:
+        """Whether ``path`` can report launch progress; cached per deployment.
+
+        An inconclusive probe is treated optimistically (banner shown), because the
+        hello timeout still recovers into the legacy behaviour if nothing connects.
+        """
+        if name not in self._handshake_support:
+            supported = deployment_supports_handshake(path)
+            self._handshake_support[name] = supported
+            if supported is False:
+                print(
+                    f"[Backend] Deployment '{name}' has no launch-progress support - "
+                    "falling back to the legacy launch behaviour."
+                )
+            elif supported is None:
+                print(f"[Backend] Could not probe launch-progress support for '{name}'.")
+        return self._handshake_support[name] is not False
+
     def _launch_base_env(self) -> dict[str, str]:
         """Env vars every launched deployment receives, regardless of action."""
         env: dict[str, str] = {}
@@ -199,6 +227,7 @@ class Backend(QObject):
     # -- progress-server signal handlers ------------------------------------
     def _on_child_hello(self, app: str, pid: int) -> None:
         self._touch_activity()
+        self._launch_saw_hello = True
         # The child connects before its heavy imports run, so this is what it is
         # actually doing until the first stage mark arrives.
         self._launch_status = "Loading Python modules..."
@@ -256,6 +285,7 @@ class Backend(QObject):
         self._launch_stages = []
         self._launch_current_stage = ""
         self._launch_child_proc = None
+        self._launch_saw_hello = False
         self._launch_started_at = time.monotonic()
         self._launch_last_activity = self._launch_started_at
         self._launch_elapsed_seconds = 0
@@ -299,7 +329,42 @@ class Backend(QObject):
         if not self._launch_in_progress:
             return
         self._check_child_liveness()
+        if self._check_handshake_fallback():
+            return
         self._check_stall()
+
+    def _check_handshake_fallback(self) -> bool:
+        """Give up on the handshake when the child never said hello.
+
+        The probe can be wrong or inconclusive (custom install layouts, a partially
+        upgraded deployment), so this is the last line of defence that keeps an
+        old deployment from leaving the banner up forever: the GUI itself is
+        starting fine, we simply cannot follow its progress, so behave as the
+        pre-handshake launcher did and get out of the way.
+
+        Returns:
+            bool: True when the fallback was triggered.
+        """
+        if self._launch_saw_hello or self._progress_server.got_ready:
+            return False
+        if time.monotonic() - self._launch_started_at <= HELLO_TIMEOUT_S:
+            return False
+
+        name = self._launch_deployment
+        print(
+            f"[Backend] No launch-progress handshake from '{name}' after "
+            f"{HELLO_TIMEOUT_S:.0f}s - assuming a deployment without support."
+        )
+        if name:
+            self._handshake_support[name] = False
+        self._elapsed_timer.stop()
+        self._progress_server.stop()
+        self._launch_in_progress = False
+        self._launch_child_proc = None
+        self._launch_status = "GUI starting"
+        self.launchStateChanged.emit()
+        self.quitApplication.emit()
+        return True
 
     def _check_child_liveness(self) -> None:
         """For the no-terminal path, detect a child that exited before ready."""
@@ -643,9 +708,14 @@ class Backend(QObject):
 
         print(f"[Backend] Launching {label} for deployment: {name} at {path}")
 
+        # A deployment whose bec_widgets predates the handshake never connects to
+        # the progress socket, so showing the banner would hang the launcher.
+        # Fall back to the pre-handshake behaviour for those.
+        show_banner = action in GUI_ACTIONS and self._deployment_handshake_support(name, path)
+
         try:
             extra_env = self._launch_base_env()
-            if action in GUI_ACTIONS:
+            if show_banner:
                 self._begin_launch_banner(label, name)
                 extra_env.update(self._prepare_progress_channel(label))
             proc = launch_deployment(
@@ -657,14 +727,16 @@ class Backend(QObject):
             )
             # Only the no-terminal path hands back the actual GUI child process,
             # so we can watch it for an early exit (crash before ready).
-            if action in GUI_ACTIONS and not launch_new_terminal:
+            if show_banner and not launch_new_terminal:
                 self._launch_child_proc = proc
-            if action not in GUI_ACTIONS:
+            if not show_banner:
+                # Legacy behaviour: the launcher has done its job once the command
+                # is spawned, exactly as it did before the handshake existed.
                 self.quitApplication.emit()
         except Exception as exc:
             message = f"Error launching {label}: {exc}"
             print(f"[Backend] {message}")
-            if action in GUI_ACTIONS:
+            if show_banner:
                 self._set_launch_error(message)
 
     @Slot()
