@@ -38,6 +38,66 @@ Window {
         onLaunchApp: backend.launchApp()
     }
 
+    // Slim background cache warm-up indicator pinned to the window bottom.
+    Rectangle {
+        id: warmupBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 22
+        // Declared between AppForm and LaunchBanner: overlays the form's bottom
+        // padding, while a launch banner still covers it.
+        color: Qt.rgba(8 / 255, 10 / 255, 18 / 255, 0.92)
+        visible: opacity > 0
+        opacity: backend.cacheWarmupActive || lingerTimer.running ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 350 } }
+
+        property bool wasActive: false
+        Timer { id: lingerTimer; interval: 4000 }
+        Connections {
+            target: backend
+            function onCacheWarmupChanged() {
+                if (warmupBar.wasActive && !backend.cacheWarmupActive
+                        && backend.cacheWarmupText !== "")
+                    lingerTimer.restart()
+                warmupBar.wasActive = backend.cacheWarmupActive
+            }
+        }
+
+        Rectangle {
+            anchors.top: parent.top
+            width: parent.width
+            height: 1
+            color: Qt.rgba(1, 1, 1, 0.06)
+        }
+
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            spacing: 8
+
+            Rectangle {
+                width: 7; height: 7; radius: 3.5
+                anchors.verticalCenter: parent.verticalCenter
+                color: backend.cacheWarmupActive ? Theme.accent : Theme.badgeProd
+                SequentialAnimation on opacity {
+                    running: backend.cacheWarmupActive && warmupBar.visible
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 1.0; to: 0.3; duration: 600 }
+                    NumberAnimation { from: 0.3; to: 1.0; duration: 600 }
+                }
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: backend.cacheWarmupText
+                color: Theme.textMuted
+                font.pixelSize: 11
+            }
+        }
+    }
+
     LaunchBanner {
         id: launchBanner
         anchors.fill: parent
