@@ -1,6 +1,46 @@
 # CHANGELOG
 
 
+## v0.7.0 (2026-08-24)
+
+### Bug Fixes
+
+- Fail clearly when a deployment has no virtual environment
+  ([`2010bbb`](https://github.com/bec-project/bec_launcher/commit/2010bbba75ad765f5731b91f40d4615318ac86dd))
+
+### Build System
+
+- Require PySide6 6.11.1 to match bec_widgets
+  ([`9662392`](https://github.com/bec-project/bec_launcher/commit/9662392172ceaf5628326ee092165b34ec465aea))
+
+### Documentation
+
+- Document the Linux default of --pycache-prefix
+  ([`f300c64`](https://github.com/bec-project/bec_launcher/commit/f300c649f86d8dcf6c7c3e27caec537943dfd1c4))
+
+### Features
+
+- Fall back to the legacy launch flow for deployments without progress support
+  ([`eeb9c03`](https://github.com/bec-project/bec_launcher/commit/eeb9c03a6a86fecea4b8705bcfb3038382429da4))
+
+- Show cache warm-up indicator at the bottom of the launcher
+  ([`01ea1bf`](https://github.com/bec-project/bec_launcher/commit/01ea1bf2e4b0bee16b0cfc56eb6ab0e9b65be83c))
+
+- Stream GUI startup progress into an animated loading banner
+  ([`e91b1db`](https://github.com/bec-project/bec_launcher/commit/e91b1dbecb9853ccf2a7c6135a7d0d8692d619aa))
+
+- Support a configurable Python bytecode cache prefix
+  ([`bf7c4bf`](https://github.com/bec-project/bec_launcher/commit/bf7c4bf20319d93e4fef339502c24cfd828c4800))
+
+- Warm deployment Python caches in the background on startup
+  ([`83491c5`](https://github.com/bec-project/bec_launcher/commit/83491c50ec446970675020981309d79b5823e547))
+
+### Refactoring
+
+- Drop the ineffective --demo flag from the banner preview
+  ([`a6d61a4`](https://github.com/bec-project/bec_launcher/commit/a6d61a4a00766ac1b329939a2d536ac224f47891))
+
+
 ## v0.6.1 (2026-07-02)
 
 ### Bug Fixes
