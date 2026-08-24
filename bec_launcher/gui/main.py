@@ -38,7 +38,8 @@ def parse_args() -> argparse.Namespace:
             "Directory for Python bytecode caches (PYTHONPYCACHEPREFIX). Applied to the "
             "background cache warm-up and exported to every launched deployment — useful "
             "when deployments live on read-only or slow (NFS) storage. Defaults to "
-            "$BEC_LAUNCHER_PYCACHE_PREFIX."
+            "$BEC_LAUNCHER_PYCACHE_PREFIX; if that is unset too, Linux falls back to "
+            "~/.cache/bec-pycache (macOS has no default)."
         ),
     )
     return parser.parse_args()
