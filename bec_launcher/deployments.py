@@ -106,6 +106,14 @@ def launch_deployment(
         root_activation_script = os.path.join(deployment_path, "bin", "activate")
         if os.path.exists(root_activation_script):
             activation_script = root_activation_script
+    if activate_env and not os.path.exists(activation_script):
+        # Without this guard the no-terminal path would silently run whatever
+        # executable the launcher's own PATH resolves, with VIRTUAL_ENV/PATH
+        # pointing at a directory that does not exist.
+        raise FileNotFoundError(
+            f"Deployment '{deployment_path}' has no virtual environment "
+            "(expected bec_venv/bin/activate or bin/activate)."
+        )
     env_path = os.path.dirname(os.path.dirname(activation_script))
 
     if not launch_new_terminal:

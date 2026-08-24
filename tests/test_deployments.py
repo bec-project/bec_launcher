@@ -320,6 +320,31 @@ def test_launch_deployment_without_terminal_starts_executable_directly(mock_pope
 
 
 @mock.patch("subprocess.Popen")
+def test_launch_deployment_raises_without_virtual_environment(mock_popen, tmpdir):
+    """A deployment without a venv must fail loudly instead of running from the caller's PATH."""
+    deployment_path = Path(tmpdir) / "no_venv"
+    deployment_path.mkdir()
+
+    for launch_new_terminal in (False, True):
+        with pytest.raises(FileNotFoundError, match="no virtual environment"):
+            launch_deployment(
+                str(deployment_path), "bec-app", launch_new_terminal=launch_new_terminal
+            )
+    mock_popen.assert_not_called()
+
+
+@mock.patch("subprocess.Popen")
+def test_launch_deployment_without_venv_allowed_when_activation_disabled(mock_popen, tmpdir):
+    deployment_path = Path(tmpdir) / "no_venv"
+    deployment_path.mkdir()
+
+    launch_deployment(
+        str(deployment_path), "bec-app", activate_env=False, launch_new_terminal=False
+    )
+    assert mock_popen.called
+
+
+@mock.patch("subprocess.Popen")
 def test_launch_deployment_without_terminal_strips_inherited_pythonpath(
     mock_popen, tmpdir, monkeypatch
 ):
