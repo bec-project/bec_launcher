@@ -130,8 +130,10 @@ class DemoLaunchState(QObject):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Preview the BEC launcher loading banner.")
-    parser.add_argument("--demo", action="store_true", help="Show the banner preview.")
+    # Running the module IS the preview; argparse only provides --help.
+    parser = argparse.ArgumentParser(
+        description="Preview the BEC launcher loading banner with a simulated launch timeline."
+    )
     parser.parse_args()
 
     os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
